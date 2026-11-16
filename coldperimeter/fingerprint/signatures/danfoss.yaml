@@ -1,0 +1,92 @@
+# Danfoss refrigeration front ends (ADAP-KOOL system managers).
+#
+# status values:
+#   documented  - taken from vendor documentation or an official advisory
+#   unverified  - reasonable guess, NOT yet confirmed on a real device
+#
+# No real device was available when this file was written. Run
+# `coldperimeter capture` on site and refine the unverified entries.
+
+vendor: Danfoss
+family: AK-SC / AK-SM system manager
+
+# Source: third-party OUI lookup (maclookup.app). Verify against the IEEE
+# registry before relying on these. 00:0B:2D also appears in the example
+# response of the Danfoss XML interface guide (AU342138209420).
+oui:
+  - prefix: "00:0B:2D"
+    owner: Danfoss Inc.
+  - prefix: "00:07:68"
+    owner: Danfoss A/S
+
+# A host is reported as a candidate when the summed weight reaches 20.
+# 40 = medium confidence, 60 = high confidence.
+signatures:
+  - id: xml-read-units
+    status: documented
+    weight: 60
+    description: Answers the read_units command of the Danfoss XML interface
+    match:
+      xml_read_units: true
+
+  - id: mac-oui
+    status: unverified
+    weight: 30
+    description: Network card registered to Danfoss
+    match:
+      mac_oui: true
+
+  - id: http-title
+    status: unverified
+    weight: 40
+    description: Web page title mentions Danfoss, StoreView or an AK front end
+    match:
+      http_title: '(?i)danfoss|storeview|ak[- ]?s[cm][- ]?\d{3}|adap[- ]?kool'
+
+  - id: http-body
+    status: unverified
+    weight: 20
+    description: Web page body mentions Danfoss or the XML endpoint
+    match:
+      http_body: '(?i)danfoss|adap[- ]?kool|xml\.cgi'
+
+# First matching pattern wins; text searched: page title, unit name, page body.
+models:
+  - id: ak-sm-800a
+    name: AK-SM 800A series
+    pattern: '(?i)(ak[- ]?)?sm[- ]?8\d\d[- ]?a\b'
+    advisories: [DSA-2023-08-01, ICSA-25-140-03, DSA-2025-08-01]
+  - id: ak-sm-800
+    name: AK-SM 800 series
+    pattern: '(?i)(ak[- ]?)?sm[- ]?8\d\d'
+    advisories: []
+  - id: ak-sc-355
+    name: AK-SC 355
+    pattern: '(?i)ak[- ]?(sc[- ]?)?355'
+    advisories: []
+  - id: ak-sc-255
+    name: AK-SC 255
+    pattern: '(?i)ak[- ]?(sc[- ]?)?255'
+    advisories: []
+
+# Fixed versions come from the advisories. The tool does NOT compare firmware
+# automatically: the version string formats were not verified on real units.
+advisories:
+  DSA-2023-08-01:
+    applies_to: AK-SM 800A
+    cves: [CVE-2023-25913, CVE-2023-25914, CVE-2023-25915]
+    summary: Authentication bypass, path traversal and command execution
+    fixed_in: "3.3"
+    url: https://danfoss.com/en/service-and-support/coordinated-vulnerability-disclosure/danfoss-security-advisories/dsa-2023-08-01
+  ICSA-25-140-03:
+    applies_to: AK-SM 8xxA series
+    cves: []
+    summary: Improper authentication (predictable password generation)
+    fixed_in: "R4.2"
+    url: https://www.cisa.gov/news-events/ics-advisories/icsa-25-140-03
+  DSA-2025-08-01:
+    applies_to: AK-SM 800A
+    cves: [CVE-2025-41450, CVE-2025-41451, CVE-2025-41452]
+    summary: Improper authentication, OS command injection and configuration injection in the web interface
+    fixed_in: "R4.3.1"
+    url: https://danfoss.com/en/service-and-support/coordinated-vulnerability-disclosure/danfoss-security-advisories

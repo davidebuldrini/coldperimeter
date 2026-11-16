@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+uv.lock
+# Scan outputs contain customer network data: never commit them.
+out/
+captures/

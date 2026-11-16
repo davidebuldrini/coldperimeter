@@ -1,0 +1,211 @@
+labels:
+  title: Refrigeration controller exposure audit
+  site: Site
+  authorized_by: Authorized by
+  operator: Operator
+  recorded_at: Authorization recorded
+  scope: Scanned scope
+  scanned: Scan finished
+  tool: Tool version
+  summary: Summary
+  controllers_found: Controllers identified
+  hosts_seen: Hosts seen
+  public_ip: Public address
+  external_check: Tested from the internet
+  devices: Devices
+  address: Address
+  mac: MAC
+  identified_as: Identified as
+  firmware: Firmware
+  confidence: Confidence
+  open_ports: Open ports
+  findings: Findings
+  evidence: Evidence
+  plan: Intervention plan
+  checklist: On-site checklist
+  limits: What this audit does not cover
+  none: None
+  not_identified: not identified
+  "yes": "Yes"
+  "no": "No"
+  unknown: Unknown
+  step: Step
+  priority: Priority
+  no_action_items: No site-specific item from this scan.
+
+severity:
+  critical: Critical
+  high: High
+  medium: Medium
+  low: Low
+  info: Note
+
+confidence:
+  high: high
+  medium: medium
+  low: low (candidate)
+
+checklist:
+  cellular_router: Is a cellular (4G/LTE) router or modem connected to the controller or to the refrigeration cabinet?
+  remote_desktop: Is remote-desktop software (TeamViewer, AnyDesk, VNC or similar) installed on a store PC that can reach the controller?
+  dialup_modem: Is a telephone-line modem connected to the controller?
+  second_wan: Does the store have a second internet line besides the one this laptop is using?
+  vendor_cloud: Is a vendor or service-company cloud remote service enabled on the controller?
+  passwords_changed: Have the controller's factory default passwords been changed?
+  alarm_path_known: Is it documented how temperature alarms reach the maintenance center (email, SMS, cloud, direct connection)?
+
+steps:
+  1:
+    title: Record the current state
+    intro: Before changing anything, write down how the controller is reached today and how alarms leave the store.
+    always:
+      - Keep this report and the saved scan file as the "before" reference.
+      - List every party that connects remotely to the controller and how.
+  2:
+    title: Bring up the VPN to the maintenance center
+    intro: Create the new secure path first, while the old one still works.
+    always:
+      - Set up a site-to-site or client VPN between the store and the maintenance center, terminated on the store firewall or on a dedicated VPN router.
+      - Allow through the VPN only the controller's address and the ports the maintenance center needs.
+      - Use per-technician accounts on the VPN, not a shared one.
+  3:
+    title: Verify remote management and alarms over the VPN
+    intro: Do not close anything until this step passes. A missed temperature alarm costs more than the risk being removed.
+    always:
+      - From the maintenance center, open the controller through the VPN and read live values.
+      - Trigger a test alarm and confirm it arrives at the maintenance center through the new path.
+      - Confirm alarm emails or SMS sent by the controller itself still leave the store.
+  4:
+    title: Remove direct access from the internet
+    intro: Once the VPN is proven, close every other way in.
+    always:
+      - Delete router port-forwarding rules that point to the controller.
+      - Disable UPnP on the router.
+  5:
+    title: Segment the network
+    intro: Put the refrigeration equipment on its own network so that a compromised store PC or guest Wi-Fi device cannot reach it.
+    always:
+      - Move controllers to a dedicated VLAN or physical network.
+      - Allow traffic to that network only from the VPN and from named management stations.
+  6:
+    title: Scan again to confirm
+    intro: Repeat the audit from the store network and compare with this report.
+    always:
+      - Run ColdPerimeter again with the external probe enabled; no controller port may answer from the internet.
+      - Check the public index again after a few weeks; old entries take time to disappear.
+  7:
+    title: Harden the controllers
+    intro: Isolation buys time; these actions remove the weaknesses themselves.
+    always:
+      - Replace default and shared passwords with individual ones.
+      - Plan replacement of models the vendor no longer supports.
+
+findings:
+  EXT-OPEN-CONTROLLER:
+    title: Controller reachable from the internet on port {port}
+    detail: Port {port} on the public address {public_ip} answers from the internet and leads to a refrigeration controller. Anyone can reach its login page.
+    action: "Close port {port} towards the controller on the router/firewall (after step 3 has passed)."
+  EXT-OPEN-OTHER:
+    title: Port {port} open on the public address
+    detail: Port {port} on {public_ip} answers from the internet. The audit could not tie it to a controller; find out which device it leads to.
+    action: "Identify what is behind public port {port}; close it unless it is needed and documented."
+  UPNP-MAP-CONTROLLER:
+    title: Router forwards {protocol} port {external_port} to the controller
+    detail: The router has a port mapping from external port {external_port} to the controller's port {internal_port}. If the router has a public address this exposes the controller.
+    action: "Delete the router mapping {protocol} {external_port} -> controller port {internal_port}."
+  UPNP-ENABLED:
+    title: UPnP is enabled on the router
+    detail: Any device or program on the store network can ask the router to open ports to the internet without anyone noticing. The router currently lists {count} mapping(s).
+    action: Disable UPnP / NAT-PMP on the router and review the remaining mappings.
+  INDEXED:
+    title: The store's public address is listed in a public index
+    detail: "A public internet index already lists {public_ip} with open ports: {ports}. Attackers search these indexes for controllers."
+    action: After closing the ports, check the index again in a few weeks to confirm the entries are gone.
+  EXT-NOT-TESTED:
+    title: Exposure was not tested from the internet
+    detail: No external probe was run, so this report cannot confirm whether the controller answers from the internet. Router rules and the public index are only indirect evidence.
+    action: Repeat the scan with the external probe enabled (--probe-url).
+  CGNAT:
+    title: The router is behind another NAT
+    detail: The router's WAN address ({wan_ip}) differs from the public address ({public_ip}). Port forwards on this router are probably not reachable from the internet, but an upstream router or a provider service may still forward traffic.
+    action: Check whether an upstream router or the provider forwards ports to this router.
+  FLAT-NET:
+    title: Controller reachable from the general store network
+    detail: The controller answered from the network the scanning laptop was plugged into. Any device on that network can reach it.
+    action: Move this controller to the dedicated refrigeration network.
+  XML-NOAUTH:
+    title: Controller answers data requests without a password
+    detail: The controller's XML interface returned its identity without any credentials. The same interface can read values and, depending on configuration, change settings.
+    action: Enable authentication for the XML interface on the controller (see the vendor's security guidance) and update firmware.
+  XML-PUBLIC-ADDR:
+    title: Controller is configured with an internet address
+    detail: The controller itself reports the internet address {address}, which shows it was set up to be reached directly from the internet.
+    action: Remove the internet address from the controller's configuration once remote access goes through the VPN.
+  HTTP-PLAIN:
+    title: Web interface without encryption
+    detail: The controller's web interface is offered over plain HTTP (port {ports}). Passwords travel unencrypted on the network.
+    action: Use HTTPS where the model supports it; otherwise restrict access to the refrigeration network and the VPN.
+  LEGACY-SVC:
+    title: Legacy remote services are open
+    detail: "The controller offers services with weak or no protection: {services}."
+    action: "Disable unused services ({services}) on the controller, or block them at the refrigeration network boundary."
+  MODBUS-OPEN:
+    title: Modbus TCP is open
+    detail: The controller accepts Modbus TCP, a protocol with no authentication. Any device that can reach port 502 can read and write values.
+    action: Block Modbus TCP at the refrigeration network boundary; allow it only from the systems that need it.
+  ADVISORY:
+    title: Published security advisories may apply
+    detail: "Identified as {model}, firmware {firmware}. Vendor advisories to check: {advisories}. The tool does not compare firmware versions automatically."
+    action: "Compare the installed firmware with the advisories ({advisories}) and update if it is older."
+  LOW-CONFIDENCE:
+    title: Possible controller, not confirmed
+    detail: This device matched only weak indicators. It may be a controller or another device from the same manufacturer.
+    action: Confirm on site what this device is.
+  UNIDENTIFIED:
+    title: Unidentified device with industrial ports
+    detail: This device has industrial ports open ({ports}) but was not recognized.
+    action: Identify the device on site and run `coldperimeter capture` on it so it can be recognized in future.
+  NO-CONTROLLER:
+    title: No controller was identified
+    detail: The scan did not recognize any refrigeration controller. It may be on another network segment, switched off, or a model the tool does not know yet.
+    action: Ask where the controller is connected and scan that network segment, or pass its address with --targets.
+  CHK-CELLULAR:
+    title: Cellular router connected to the refrigeration system
+    detail: A cellular router gives a second, separate path from the internet to the controller that the store firewall does not see.
+    action: Find out who owns the cellular router and whether it has a public address; replace it with the VPN or lock it down to VPN-only.
+  CHK-REMOTE-DESKTOP:
+    title: Remote-desktop software can reach the controller
+    detail: Remote-desktop software on a store PC lets whoever holds its credentials reach the controller from anywhere.
+    action: Remove the remote-desktop software or restrict it; route maintenance access through the VPN.
+  CHK-DIALUP:
+    title: Dial-up modem connected to the controller
+    detail: A telephone modem is a direct way in that bypasses the network completely.
+    action: Disconnect the modem unless the alarm path depends on it; if it does, replace that path first (steps 2-3).
+  CHK-SECOND-WAN:
+    title: The store has a second internet line
+    detail: This scan only looked at the line the laptop was using. The other line may forward ports of its own.
+    action: Repeat the scan while connected through the second line.
+  CHK-VENDOR-CLOUD:
+    title: Vendor cloud service in use
+    detail: The controller talks to a vendor or service-company cloud. That path must keep working after isolation, or be replaced on purpose.
+    action: Document the cloud service and allow only its outbound traffic through the firewall.
+  CHK-PASSWORDS:
+    title: Default passwords not confirmed as changed
+    detail: Factory default passwords are public knowledge. If they are still in place, anyone who reaches the login page can enter.
+    action: Change every default password on the controller.
+  CHK-ALARM-PATH:
+    title: Alarm path is not documented
+    detail: Nobody on site could say how temperature alarms reach the maintenance center. Closing access without knowing this risks silencing alarms.
+    action: Document the alarm path before starting step 4.
+  CHK-UNKNOWN:
+    title: Checklist questions left unanswered
+    detail: "These access paths cannot be seen by a network scan and were not checked on site: {questions}"
+    action: Answer the open checklist questions on site.
+
+limits:
+  - Devices on other network segments or VLANs than the one scanned.
+  - Access paths outside the network, such as cellular routers and modems (covered only by the checklist).
+  - Router port forwards when UPnP is disabled; read them from the router's administration page.
+  - UDP services such as BACnet/IP.
+  - Recognition of Danfoss controllers is based on vendor documentation and has not yet been validated on real units.
+  - This audit is read-only; it did not try any password and changed nothing.

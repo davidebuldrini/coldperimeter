@@ -1,0 +1,211 @@
+labels:
+  title: Audit di esposizione delle centraline frigo
+  site: Sito
+  authorized_by: Autorizzato da
+  operator: Operatore
+  recorded_at: Autorizzazione registrata
+  scope: Ambito della scansione
+  scanned: Scansione terminata
+  tool: Versione dello strumento
+  summary: Riepilogo
+  controllers_found: Centraline identificate
+  hosts_seen: Dispositivi visti
+  public_ip: Indirizzo pubblico
+  external_check: Verificato da internet
+  devices: Dispositivi
+  address: Indirizzo
+  mac: MAC
+  identified_as: Identificato come
+  firmware: Firmware
+  confidence: Affidabilità
+  open_ports: Porte aperte
+  findings: Rilievi
+  evidence: Prove
+  plan: Piano di intervento
+  checklist: Checklist sul posto
+  limits: Cosa non copre questo audit
+  none: Nessuno
+  not_identified: non identificato
+  "yes": "Sì"
+  "no": "No"
+  unknown: Non noto
+  step: Fase
+  priority: Priorità
+  no_action_items: Nessuna voce specifica da questa scansione.
+
+severity:
+  critical: Critico
+  high: Alto
+  medium: Medio
+  low: Basso
+  info: Nota
+
+confidence:
+  high: alta
+  medium: media
+  low: bassa (candidato)
+
+checklist:
+  cellular_router: C'è un router o modem cellulare (4G/LTE) collegato alla centralina o al quadro frigo?
+  remote_desktop: Su un PC del negozio che raggiunge la centralina è installato un software di controllo remoto (TeamViewer, AnyDesk, VNC o simili)?
+  dialup_modem: C'è un modem su linea telefonica collegato alla centralina?
+  second_wan: Il negozio ha una seconda linea internet oltre a quella usata da questo portatile?
+  vendor_cloud: Sulla centralina è attivo un servizio cloud del produttore o della ditta di manutenzione?
+  passwords_changed: Le password di fabbrica della centralina sono state cambiate?
+  alarm_path_known: È documentato come gli allarmi di temperatura arrivano al centro di manutenzione (email, SMS, cloud, collegamento diretto)?
+
+steps:
+  1:
+    title: Registrare lo stato attuale
+    intro: Prima di modificare qualsiasi cosa, annotare come viene raggiunta oggi la centralina e come escono gli allarmi dal negozio.
+    always:
+      - Conservare questo report e il file della scansione come riferimento del "prima".
+      - Elencare chi si collega da remoto alla centralina e in che modo.
+  2:
+    title: Attivare la VPN verso il centro di manutenzione
+    intro: Creare prima il nuovo percorso sicuro, mentre quello vecchio funziona ancora.
+    always:
+      - Configurare una VPN tra il negozio e il centro di manutenzione, terminata sul firewall del negozio o su un router VPN dedicato.
+      - Far passare nella VPN solo l'indirizzo della centralina e le porte che servono al centro di manutenzione.
+      - Usare sulla VPN un account per ogni tecnico, non uno condiviso.
+  3:
+    title: Verificare telegestione e allarmi tramite VPN
+    intro: Non chiudere nulla finché questa fase non è superata. Un allarme di temperatura perso costa più del rischio che si sta eliminando.
+    always:
+      - Dal centro di manutenzione, aprire la centralina attraverso la VPN e leggere i valori in tempo reale.
+      - Generare un allarme di prova e verificare che arrivi al centro di manutenzione dal nuovo percorso.
+      - Verificare che email o SMS di allarme inviati dalla centralina escano ancora dal negozio.
+  4:
+    title: Rimuovere l'accesso diretto da internet
+    intro: Una volta collaudata la VPN, chiudere ogni altra via d'ingresso.
+    always:
+      - Eliminare dal router le regole di port forwarding verso la centralina.
+      - Disattivare UPnP sul router.
+  5:
+    title: Segmentare la rete
+    intro: Mettere gli impianti del freddo su una rete propria, così un PC del negozio compromesso o un dispositivo sul Wi-Fi ospiti non può raggiungerli.
+    always:
+      - Spostare le centraline su una VLAN o rete fisica dedicata.
+      - Consentire il traffico verso quella rete solo dalla VPN e da postazioni di gestione definite.
+  6:
+    title: Ripetere la scansione di conferma
+    intro: Ripetere l'audit dalla rete del negozio e confrontarlo con questo report.
+    always:
+      - Rilanciare ColdPerimeter con la sonda esterna attiva; nessuna porta della centralina deve rispondere da internet.
+      - Ricontrollare l'indice pubblico dopo qualche settimana; le voci vecchie impiegano tempo a sparire.
+  7:
+    title: Mettere in sicurezza le centraline
+    intro: L'isolamento fa guadagnare tempo; queste azioni eliminano le debolezze vere e proprie.
+    always:
+      - Sostituire le password predefinite e condivise con password individuali.
+      - Pianificare la sostituzione dei modelli non più supportati dal produttore.
+
+findings:
+  EXT-OPEN-CONTROLLER:
+    title: Centralina raggiungibile da internet sulla porta {port}
+    detail: La porta {port} dell'indirizzo pubblico {public_ip} risponde da internet e porta a una centralina frigo. Chiunque può arrivare alla sua pagina di accesso.
+    action: "Chiudere la porta {port} verso la centralina su router/firewall (dopo aver superato la fase 3)."
+  EXT-OPEN-OTHER:
+    title: Porta {port} aperta sull'indirizzo pubblico
+    detail: La porta {port} di {public_ip} risponde da internet. L'audit non è riuscito a collegarla a una centralina; verificare a quale dispositivo porta.
+    action: "Identificare cosa c'è dietro la porta pubblica {port}; chiuderla se non è necessaria e documentata."
+  UPNP-MAP-CONTROLLER:
+    title: Il router inoltra la porta {protocol} {external_port} alla centralina
+    detail: Il router ha una regola dalla porta esterna {external_port} alla porta {internal_port} della centralina. Se il router ha un indirizzo pubblico, la centralina è esposta.
+    action: "Eliminare dal router la regola {protocol} {external_port} -> porta {internal_port} della centralina."
+  UPNP-ENABLED:
+    title: UPnP è attivo sul router
+    detail: Qualsiasi dispositivo o programma sulla rete del negozio può chiedere al router di aprire porte verso internet senza che nessuno se ne accorga. Il router elenca ora {count} regola/e.
+    action: Disattivare UPnP / NAT-PMP sul router e controllare le regole rimaste.
+  INDEXED:
+    title: L'indirizzo pubblico del negozio compare in un indice pubblico
+    detail: "Un indice pubblico di internet elenca già {public_ip} con porte aperte: {ports}. Gli attaccanti cercano le centraline proprio in questi indici."
+    action: Dopo aver chiuso le porte, ricontrollare l'indice dopo qualche settimana per confermare che le voci siano sparite.
+  EXT-NOT-TESTED:
+    title: L'esposizione non è stata verificata da internet
+    detail: Non è stata eseguita la sonda esterna, quindi questo report non può confermare se la centralina risponde da internet. Le regole del router e l'indice pubblico sono solo prove indirette.
+    action: Ripetere la scansione con la sonda esterna attiva (--probe-url).
+  CGNAT:
+    title: Il router è dietro un altro NAT
+    detail: L'indirizzo WAN del router ({wan_ip}) è diverso dall'indirizzo pubblico ({public_ip}). Le regole di inoltro di questo router probabilmente non sono raggiungibili da internet, ma un router a monte o un servizio del provider potrebbero comunque inoltrare traffico.
+    action: Verificare se un router a monte o il provider inoltra porte verso questo router.
+  FLAT-NET:
+    title: Centralina raggiungibile dalla rete generale del negozio
+    detail: La centralina ha risposto dalla rete a cui era collegato il portatile. Qualsiasi dispositivo su quella rete può raggiungerla.
+    action: Spostare questa centralina sulla rete dedicata al freddo.
+  XML-NOAUTH:
+    title: La centralina risponde a richieste di dati senza password
+    detail: L'interfaccia XML della centralina ha restituito la propria identità senza credenziali. La stessa interfaccia può leggere valori e, secondo la configurazione, modificare impostazioni.
+    action: Attivare l'autenticazione dell'interfaccia XML sulla centralina (vedi le indicazioni di sicurezza del produttore) e aggiornare il firmware.
+  XML-PUBLIC-ADDR:
+    title: La centralina è configurata con un indirizzo internet
+    detail: "La centralina stessa dichiara l'indirizzo internet {address}: è stata impostata per essere raggiunta direttamente da internet."
+    action: Togliere l'indirizzo internet dalla configurazione della centralina quando l'accesso remoto passa dalla VPN.
+  HTTP-PLAIN:
+    title: Interfaccia web senza cifratura
+    detail: L'interfaccia web della centralina è offerta in HTTP semplice (porta {ports}). Le password viaggiano in chiaro sulla rete.
+    action: Usare HTTPS dove il modello lo supporta; altrimenti limitare l'accesso alla rete del freddo e alla VPN.
+  LEGACY-SVC:
+    title: Servizi remoti obsoleti aperti
+    detail: "La centralina offre servizi con protezione debole o assente: {services}."
+    action: "Disattivare sulla centralina i servizi non usati ({services}), oppure bloccarli al confine della rete del freddo."
+  MODBUS-OPEN:
+    title: Modbus TCP aperto
+    detail: La centralina accetta Modbus TCP, un protocollo senza autenticazione. Qualsiasi dispositivo che raggiunge la porta 502 può leggere e scrivere valori.
+    action: Bloccare Modbus TCP al confine della rete del freddo; consentirlo solo ai sistemi che ne hanno bisogno.
+  ADVISORY:
+    title: Possono applicarsi avvisi di sicurezza pubblicati
+    detail: "Identificato come {model}, firmware {firmware}. Avvisi del produttore da controllare: {advisories}. Lo strumento non confronta automaticamente le versioni firmware."
+    action: "Confrontare il firmware installato con gli avvisi ({advisories}) e aggiornare se è più vecchio."
+  LOW-CONFIDENCE:
+    title: Possibile centralina, non confermata
+    detail: Questo dispositivo corrisponde solo a indicatori deboli. Può essere una centralina o un altro dispositivo dello stesso produttore.
+    action: Verificare sul posto che dispositivo è.
+  UNIDENTIFIED:
+    title: Dispositivo non identificato con porte industriali
+    detail: Questo dispositivo ha porte industriali aperte ({ports}) ma non è stato riconosciuto.
+    action: Identificare il dispositivo sul posto ed eseguire `coldperimeter capture` su di esso, così potrà essere riconosciuto in futuro.
+  NO-CONTROLLER:
+    title: Nessuna centralina identificata
+    detail: La scansione non ha riconosciuto centraline frigo. Può essere su un altro segmento di rete, spenta, o un modello che lo strumento non conosce ancora.
+    action: Chiedere dove è collegata la centralina e scansionare quel segmento, oppure indicarne l'indirizzo con --targets.
+  CHK-CELLULAR:
+    title: Router cellulare collegato all'impianto frigo
+    detail: Un router cellulare crea un secondo percorso, separato, da internet alla centralina, che il firewall del negozio non vede.
+    action: Verificare di chi è il router cellulare e se ha un indirizzo pubblico; sostituirlo con la VPN o limitarlo alla sola VPN.
+  CHK-REMOTE-DESKTOP:
+    title: Un software di controllo remoto può raggiungere la centralina
+    detail: Un software di controllo remoto su un PC del negozio permette a chi ne possiede le credenziali di raggiungere la centralina da qualsiasi luogo.
+    action: Rimuovere o limitare il software di controllo remoto; far passare la manutenzione dalla VPN.
+  CHK-DIALUP:
+    title: Modem telefonico collegato alla centralina
+    detail: Un modem telefonico è una via d'ingresso diretta che scavalca del tutto la rete.
+    action: Scollegare il modem, a meno che gli allarmi dipendano da esso; in quel caso sostituire prima quel percorso (fasi 2-3).
+  CHK-SECOND-WAN:
+    title: Il negozio ha una seconda linea internet
+    detail: Questa scansione ha esaminato solo la linea usata dal portatile. L'altra linea può avere regole di inoltro proprie.
+    action: Ripetere la scansione collegandosi tramite la seconda linea.
+  CHK-VENDOR-CLOUD:
+    title: Servizio cloud del produttore in uso
+    detail: La centralina comunica con un cloud del produttore o della ditta di manutenzione. Quel percorso deve continuare a funzionare dopo l'isolamento, oppure essere sostituito di proposito.
+    action: Documentare il servizio cloud e consentire nel firewall solo il suo traffico in uscita.
+  CHK-PASSWORDS:
+    title: Cambio delle password predefinite non confermato
+    detail: Le password di fabbrica sono di dominio pubblico. Se sono ancora attive, chiunque raggiunga la pagina di accesso può entrare.
+    action: Cambiare tutte le password predefinite della centralina.
+  CHK-ALARM-PATH:
+    title: Percorso degli allarmi non documentato
+    detail: Sul posto nessuno ha saputo dire come gli allarmi di temperatura arrivano al centro di manutenzione. Chiudere gli accessi senza saperlo rischia di silenziare gli allarmi.
+    action: Documentare il percorso degli allarmi prima di iniziare la fase 4.
+  CHK-UNKNOWN:
+    title: Domande della checklist senza risposta
+    detail: "Questi percorsi di accesso non sono visibili a una scansione di rete e non sono stati verificati sul posto: {questions}"
+    action: Rispondere sul posto alle domande aperte della checklist.
+
+limits:
+  - Dispositivi su segmenti di rete o VLAN diversi da quello scansionato.
+  - Percorsi di accesso esterni alla rete, come router cellulari e modem (coperti solo dalla checklist).
+  - Regole di inoltro del router quando UPnP è disattivato; vanno lette dalla pagina di amministrazione del router.
+  - Servizi UDP come BACnet/IP.
+  - Il riconoscimento delle centraline Danfoss si basa sulla documentazione del produttore e non è ancora stato validato su unità reali.
+  - Questo audit è in sola lettura; non ha provato alcuna password e non ha modificato nulla.

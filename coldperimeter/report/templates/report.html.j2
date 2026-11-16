@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t.title }} — {{ result.consent.site_name }}</title>
+<style>
+  :root {
+    --ink: #16202a; --muted: #5b6876; --line: #d8dee5; --paper: #ffffff;
+    --wash: #f3f6f9; --accent: #0b5cad;
+    --critical: #a4161a; --high: #c2510c; --medium: #8a6a00; --low: #3d6b4a; --info: #4a5a6a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--wash); color: var(--ink);
+         font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; text-wrap: balance; }
+  h2 { font-size: 19px; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--ink); }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 8px; max-width: 70ch; }
+  .site { color: var(--muted); font-size: 17px; margin-bottom: 20px; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
+          padding: 14px 16px; margin-bottom: 12px; }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+  dl.meta dt { color: var(--muted); }
+  dl.meta dd { margin: 0; overflow-wrap: anywhere; }
+  .counts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 3px; color: #fff;
+           font-size: 12px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+  .critical { background: var(--critical); } .high { background: var(--high); }
+  .medium { background: var(--medium); } .low { background: var(--low); } .info { background: var(--info); }
+  .finding { border-left: 5px solid var(--line); }
+  .finding.sev-critical { border-left-color: var(--critical); }
+  .finding.sev-high { border-left-color: var(--high); }
+  .finding.sev-medium { border-left-color: var(--medium); }
+  .finding.sev-low { border-left-color: var(--low); }
+  .finding.sev-info { border-left-color: var(--info); }
+  .host { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; color: var(--muted); }
+  ul { margin: 6px 0 0; padding-left: 20px; }
+  ul.evidence { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  ul.tasks { list-style: none; padding-left: 0; }
+  ul.tasks li { padding: 5px 0 5px 28px; position: relative; border-top: 1px solid var(--line); }
+  ul.tasks li::before { content: ""; position: absolute; left: 2px; top: 9px; width: 14px; height: 14px;
+                        border: 1.5px solid var(--ink); border-radius: 2px; }
+  .step-num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  td.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+  @media print {
+    body { background: #fff; } main { padding: 0; max-width: none; }
+    .card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>{{ t.title }}</h1>
+  <div class="site">{{ result.consent.site_name }}</div>
+
+  <div class="card">
+    <dl class="meta">
+      <dt>{{ t.authorized_by }}</dt><dd>{{ result.consent.authorized_by }}</dd>
+      <dt>{{ t.operator }}</dt><dd>{{ result.consent.operator }}</dd>
+      <dt>{{ t.recorded_at }}</dt><dd>{{ result.consent.recorded_at }}</dd>
+      <dt>{{ t.scope }}</dt><dd>{{ result.scope }}</dd>
+      <dt>{{ t.scanned }}</dt><dd>{{ result.finished_at }}</dd>
+    </dl>
+  </div>
+
+  <h2>{{ t.summary }}</h2>
+  <div class="card">
+    <dl class="meta">
+      <dt>{{ t.controllers_found }}</dt><dd>{{ controllers|length }}</dd>
+      <dt>{{ t.hosts_seen }}</dt><dd>{{ result.hosts|length }}</dd>
+      <dt>{{ t.public_ip }}</dt><dd>{{ result.exposure.public_ip or t.unknown }}</dd>
+      <dt>{{ t.external_check }}</dt><dd>{{ t.yes if result.exposure.external_checked else t.no }}</dd>
+    </dl>
+    <div class="counts">
+      {% for sev, n in counts.items() if n %}
+      <span class="badge {{ sev }}">{{ locale.severity[sev] }}: {{ n }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <h2>{{ t.devices }}</h2>
+  {% if controllers %}
+  <div class="card table-wrap">
+    <table>
+      <thead><tr>
+        <th>{{ t.address }}</th><th>{{ t.identified_as }}</th><th>{{ t.firmware }}</th>
+        <th>{{ t.confidence }}</th><th>{{ t.open_ports }}</th>
+      </tr></thead>
+      <tbody>
+      {% for host in controllers %}
+        <tr>
+          <td class="mono">{{ host.ip }}{% if host.mac %}<br>{{ host.mac }}{% endif %}</td>
+          <td>{{ host.device.vendor }} {{ host.device.model or host.device.family }}</td>
+          <td>{{ host.device.firmware or t.unknown }}</td>
+          <td>{{ locale.confidence[host.device.confidence] }}</td>
+          <td class="mono">{% for p in host.open_ports %}{{ p.port }} ({{ p.role }}){% if not loop.last %}, {% endif %}{% endfor %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p>{{ t.none }}</p>
+  {% endif %}
+
+  <h2>{{ t.findings }}</h2>
+  {% for f in findings %}
+  <div class="card finding sev-{{ f.severity }}">
+    <h3><span class="badge {{ f.severity }}">{{ f.severity_label }}</span> {{ f.title }}</h3>
+    {% if f.host %}<div class="host">{{ f.host }}</div>{% endif %}
+    <p>{{ f.detail }}</p>
+    {% if f.evidence %}
+    <ul class="evidence">{% for e in f.evidence %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <h2>{{ t.plan }}</h2>
+  {% for step in plan %}
+  <div class="card">
+    <h3><span class="step-num">{{ t.step }} {{ step.number }}.</span> {{ step.title }}</h3>
+    <p>{{ step.intro }}</p>
+    <ul class="tasks">
+      {% for text in step.always %}<li>{{ text }}</li>{% endfor %}
+      {% for item in step.items %}
+      <li><span class="badge {{ item.severity }}">{{ item.severity_label }}</span>
+          {{ item.action }}{% if item.host %} <span class="host">{{ item.host }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+
+  <h2>{{ t.checklist }}</h2>
+  <div class="card table-wrap">
+    <table><tbody>
+    {% for question, answer in questions %}
+      <tr><td>{{ question }}</td><td><strong>{{ t[answer] }}</strong></td></tr>
+    {% endfor %}
+    </tbody></table>
+  </div>
+
+  <h2>{{ t.limits }}</h2>
+  <div class="card"><ul>{% for text in locale.limits %}<li>{{ text }}</li>{% endfor %}</ul></div>
+
+  <footer>ColdPerimeter {{ result.tool_version }}</footer>
+</main>
+</body>
+</html>
