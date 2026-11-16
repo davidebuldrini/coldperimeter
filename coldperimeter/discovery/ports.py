@@ -8,6 +8,7 @@ No payload is sent: the connection is opened and closed.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from ..models import OpenPort
@@ -92,12 +93,16 @@ async def scan_hosts(
     delay: float = 0.2,
     timeout: float = 1.5,
     concurrency: int = 8,
+    on_host_done: Callable[[], None] | None = None,
 ) -> dict[str, list[OpenPort]]:
     """Scan several hosts; at most ``concurrency`` hosts at the same time."""
     limiter = asyncio.Semaphore(concurrency)
 
     async def one(ip: str) -> tuple[str, list[OpenPort]]:
         async with limiter:
-            return ip, await scan_host(ip, specs, delay, timeout)
+            found = await scan_host(ip, specs, delay, timeout)
+        if on_host_done:
+            on_host_done()
+        return ip, found
 
     return dict(await asyncio.gather(*(one(ip) for ip in ips)))

@@ -209,3 +209,125 @@ limits:
   - UDP services such as BACnet/IP.
   - Recognition of Danfoss controllers is based on vendor documentation and has not yet been validated on real units.
   - This audit is read-only; it did not try any password and changed nothing.
+
+vpn:
+  hub_name: relay server
+  center_name: maintenance center
+  instructions_title: VPN setup steps
+  intro: These files set up a WireGuard tunnel that the store opens towards the server. No port is opened at the store. ColdPerimeter generated the files; nothing was changed on any device.
+  server_new: "On the {server} machine (public address {endpoint}): install WireGuard, copy `{file}` to `/etc/wireguard/wg0.conf`, allow UDP port {port} in through its firewall, then start the tunnel with `wg-quick up wg0`."
+  server_existing: "On the existing {server}: append the content of `{file}` to its WireGuard configuration and reload it."
+  store_gateway: "On the store gateway (a small Linux device plugged into the same network as the controller): install WireGuard and iptables, copy `{file}` to `/etc/wireguard/wg0.conf`, start it with `wg-quick up wg0` and enable it at boot with `systemctl enable wg-quick@wg0`."
+  store_router: "On the store router: import `{file}` in its WireGuard section, then add a firewall rule that lets the tunnel reach only {targets}."
+  technician: "On the technician's laptop: import `{file}` in the WireGuard app and activate it."
+  verify: "With the tunnel up, run the verification in ColdPerimeter before removing any direct access (plan step 3)."
+  access_title: How to reach the controller through the VPN
+  access_line: "Controller {controller} port {controller_port}: connect to {address}:{port}"
+  notes_title: Notes
+  keys_warning: These files contain private keys. Treat them like passwords and delete the copies you do not need.
+  direct_note: "Only the machine running `{file}` reaches the store through the tunnel."
+  router_note: The controller address must be unique among the stores that share this server.
+
+ui:
+  steps:
+    authorization: Authorization
+    scope: Scope
+    scan: Scan
+    checklist: On-site questions
+    results: Results
+  language: Language
+  continue: Continue
+  back: Back
+  auth_title: Who authorized this audit?
+  auth_intro: ColdPerimeter only looks. It tries no password and changes no device. It still needs permission from whoever owns the network.
+  site: Store name
+  authorized_by: Authorized by
+  authorized_by_hint: The network owner or the person acting for them.
+  operator: Your name
+  confirm: I am authorized to audit this network.
+  open_saved: Open a saved scan
+  open_saved_hint: Reopens a scan.json file without touching the network.
+  scope_title: What to scan
+  network: Network
+  network_hint: Detected from this computer's connection. Change it if the controller is on another network.
+  network_missing: No network detected. Type it, for example 192.168.1.0/24.
+  advanced: Advanced options
+  targets: Only these addresses
+  targets_hint: Separated by spaces. Leave empty to scan the whole network.
+  offline: Make no request to the internet
+  offline_hint: Skips the public address lookup, the public index and the external probe.
+  probe_url: External probe address
+  probe_hint: A ColdPerimeter probe server you run. Without it, exposure from the internet stays unconfirmed.
+  xml_probe: Ask Danfoss controllers for their identity
+  xml_hint: One read-only request documented by the vendor.
+  sends_title: What this scan sends
+  sends:
+    - One ping to each address, then a connection attempt on nine ports, one at a time.
+    - To devices with a web page, one page request and one identity request, five seconds apart.
+    - To the router, a request for its list of forwarded ports.
+    - To the internet, a public address lookup and a public index lookup, unless you switch them off.
+  start: Start scan
+  scan_title: Scanning
+  scan_slow: This takes a few minutes on purpose. Old controllers can freeze when probed quickly, and a frozen controller sends no alarms.
+  stage_hosts: Find devices
+  stage_ports: Check ports
+  stage_identity: Read device identity
+  stage_exposure: Check exposure to the internet
+  status_pending: Waiting
+  status_running: Running
+  status_done: Done
+  stop: Stop scan
+  stopped: Scan stopped. Nothing was saved.
+  failed: The scan failed
+  to_checklist: Answer the on-site questions
+  checklist_title: On-site questions
+  checklist_intro: A network scan cannot see these. Look inside the refrigeration cabinet and ask the store staff.
+  see_results: See results
+  waiting_scan: The scan is still running. Results open when it finishes.
+  results_title: Results
+  open_report: Open printable report
+  open_folder: Open folder
+  new_scan: New scan
+  saved_to: "Saved to {dir}"
+  setup_vpn: Set up the VPN
+  vpn_title: Set up the VPN
+  vpn_intro: This writes WireGuard configuration files for you to load. ColdPerimeter changes nothing on routers or controllers.
+  vpn_public: Can the maintenance center be reached from the internet?
+  vpn_public_yes: Yes, it has a public address
+  vpn_public_yes_hint: The store connects straight to the center.
+  vpn_public_no: No, or we look after many stores
+  vpn_public_no_hint: Stores and technicians both connect to a small relay server with a public address.
+  vpn_endpoint_direct: Maintenance center address
+  vpn_endpoint_hub: Relay server address
+  vpn_endpoint_hint: Host name or public IP address.
+  vpn_port: UDP port
+  vpn_device: Where does the VPN run in the store?
+  vpn_device_gateway: A dedicated gateway next to the controller
+  vpn_device_gateway_hint: A small Linux device. Only the listed controller ports are forwarded.
+  vpn_device_router: The store router
+  vpn_device_router_hint: It must support WireGuard. You add the firewall rule yourself.
+  vpn_controller: Controller address
+  vpn_controller_ports: Controller ports
+  vpn_ports_hint: Separated by commas.
+  vpn_store_number: Store number
+  vpn_store_number_hint: A different number for each store on the same server.
+  vpn_existing_key: Public key of the existing server
+  vpn_existing_key_hint: Leave empty for a new server. Fill it in to add this store to a server you already set up.
+  vpn_generate: Write files
+  vpn_files: Files written
+  vpn_keys_warning: These files contain private keys. Treat them like passwords.
+  vpn_verify_title: Verify through the tunnel
+  vpn_verify_hint: With the VPN active on this computer, check that the controller answers before you close any direct access.
+  vpn_verify_address: Address
+  vpn_verify: Verify
+  vpn_reachable: "The controller answers through the tunnel."
+  vpn_unreachable: No answer. Do not close direct access yet.
+  back_results: Back to results
+  error_engine: ColdPerimeter's engine did not answer. Close the window and open it again.
+  error_file: This file is not a ColdPerimeter scan.
+  ports_label: Ports to check
+  ports_hint: Leave empty for the standard list. Example for the simulators, http:18080,modbus:15020
+  igd_label: Router description address
+  igd_hint: Only if the router is not found automatically.
+  none_found: No refrigeration controller was identified.
+  vpn_port_tcp: Port

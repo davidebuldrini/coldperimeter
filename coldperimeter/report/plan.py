@@ -7,7 +7,7 @@ temperature alarms are never silenced by the hardening work.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -124,6 +124,35 @@ def _context(result: ScanResult, lang: str) -> dict[str, Any]:
         "questions": [
             (locale["checklist"][q], result.checklist.get(q, "unknown")) for q in QUESTIONS
         ],
+    }
+
+
+def result_view(result: ScanResult, lang: str = "en") -> dict[str, Any]:
+    """JSON-ready view of a result, with every text already localized."""
+    ctx = _context(result, lang)
+    confidence = ctx["locale"]["confidence"]
+    return {
+        "consent": asdict(result.consent),
+        "scope": result.scope,
+        "finished_at": result.finished_at,
+        "hosts_seen": len(result.hosts),
+        "public_ip": result.exposure.public_ip,
+        "external_checked": result.exposure.external_checked,
+        "counts": ctx["counts"],
+        "controllers": [
+            {
+                "ip": host.ip,
+                "mac": host.mac,
+                "name": f"{host.device.vendor} {host.device.model or host.device.family}",
+                "firmware": host.device.firmware,
+                "confidence": confidence[host.device.confidence],
+                "ports": [asdict(p) for p in host.open_ports],
+            }
+            for host in ctx["controllers"]
+        ],
+        "findings": [asdict(f) for f in ctx["findings"]],
+        "plan": [asdict(step) for step in ctx["plan"]],
+        "checklist": dict(result.checklist),
     }
 
 

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ColdPerimeter</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect class="mark-track" x="4" y="4" width="32" height="32" rx="7" pathLength="100"/>
+        <rect class="mark-line" id="mark-line" x="4" y="4" width="32" height="32" rx="7" pathLength="100"/>
+      </svg>
+      <span class="brand-name">ColdPerimeter</span>
+    </div>
+    <ol class="steps" id="steps"></ol>
+    <div class="rail-foot">
+      <label for="lang" data-t="language"></label>
+      <select id="lang"></select>
+      <span class="version" id="version"></span>
+    </div>
+  </aside>
+
+  <main id="main" tabindex="-1">
+    <p class="error" id="error" role="alert" hidden></p>
+
+    <section data-view="authorization" hidden>
+      <h1 data-t="auth_title"></h1>
+      <p class="lede" data-t="auth_intro"></p>
+      <form id="auth-form" class="form" novalidate>
+        <div class="field">
+          <label for="site" data-t="site"></label>
+          <input id="site" name="site" autocomplete="off" required>
+        </div>
+        <div class="field">
+          <label for="authorized_by" data-t="authorized_by"></label>
+          <input id="authorized_by" autocomplete="off" required aria-describedby="authorized_by_hint">
+          <p class="hint" id="authorized_by_hint" data-t="authorized_by_hint"></p>
+        </div>
+        <div class="field">
+          <label for="operator" data-t="operator"></label>
+          <input id="operator" autocomplete="name" required>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="confirmed" required>
+          <span data-t="confirm"></span>
+        </label>
+        <div class="actions">
+          <button type="submit" class="primary" data-t="continue"></button>
+        </div>
+      </form>
+      <div class="aside-action">
+        <button type="button" class="link" id="open-saved" data-t="open_saved"></button>
+        <input type="file" id="saved-file" accept=".json,application/json" hidden>
+        <p class="hint" data-t="open_saved_hint"></p>
+      </div>
+    </section>
+
+    <section data-view="scope" hidden>
+      <h1 data-t="scope_title"></h1>
+      <form id="scope-form" class="form" novalidate>
+        <div class="field">
+          <label for="network" data-t="network"></label>
+          <input id="network" class="mono" autocomplete="off" spellcheck="false" aria-describedby="network_hint">
+          <p class="hint" id="network_hint"></p>
+        </div>
+        <details class="advanced">
+          <summary data-t="advanced"></summary>
+          <div class="field">
+            <label for="targets" data-t="targets"></label>
+            <input id="targets" class="mono" autocomplete="off" spellcheck="false" aria-describedby="targets_hint">
+            <p class="hint" id="targets_hint" data-t="targets_hint"></p>
+          </div>
+          <label class="check">
+            <input type="checkbox" id="offline">
+            <span><span data-t="offline"></span><small data-t="offline_hint"></small></span>
+          </label>
+          <div class="field">
+            <label for="probe_url" data-t="probe_url"></label>
+            <input id="probe_url" class="mono" type="url" autocomplete="off" spellcheck="false" placeholder="https://" aria-describedby="probe_hint">
+            <p class="hint" id="probe_hint" data-t="probe_hint"></p>
+          </div>
+          <label class="check">
+            <input type="checkbox" id="xml_probe" checked>
+            <span><span data-t="xml_probe"></span><small data-t="xml_hint"></small></span>
+          </label>
+          <div class="field">
+            <label for="ports" data-t="ports_label"></label>
+            <input id="ports" class="mono" autocomplete="off" spellcheck="false" aria-describedby="ports_hint">
+            <p class="hint" id="ports_hint" data-t="ports_hint"></p>
+          </div>
+          <div class="field">
+            <label for="igd_url" data-t="igd_label"></label>
+            <input id="igd_url" class="mono" autocomplete="off" spellcheck="false" aria-describedby="igd_hint">
+            <p class="hint" id="igd_hint" data-t="igd_hint"></p>
+          </div>
+        </details>
+        <div class="disclosure">
+          <h2 data-t="sends_title"></h2>
+          <ul id="sends"></ul>
+        </div>
+        <div class="actions">
+          <button type="button" class="quiet" data-go="authorization" data-t="back"></button>
+          <button type="submit" class="primary" data-t="start"></button>
+        </div>
+      </form>
+    </section>
+
+    <section data-view="scan" hidden>
+      <h1 data-t="scan_title"></h1>
+      <p class="lede" data-t="scan_slow"></p>
+      <ol class="stages" id="stages"></ol>
+      <p class="scan-note" id="scan-note" aria-live="polite"></p>
+      <div class="actions">
+        <button type="button" class="quiet" id="stop" data-t="stop"></button>
+        <button type="button" class="primary" data-go="checklist" data-t="to_checklist"></button>
+      </div>
+    </section>
+
+    <section data-view="checklist" hidden>
+      <h1 data-t="checklist_title"></h1>
+      <p class="lede" data-t="checklist_intro"></p>
+      <form id="checklist-form" class="questions"></form>
+      <p class="scan-note" id="checklist-note" aria-live="polite"></p>
+      <div class="actions">
+        <button type="button" class="primary" id="see-results" data-t="see_results"></button>
+      </div>
+    </section>
+
+    <section data-view="results" class="wide" hidden>
+      <header class="results-head">
+        <div>
+          <h1 data-t="results_title"></h1>
+          <p class="lede" id="results-site"></p>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary" id="open-report" data-t="open_report"></button>
+          <button type="button" class="quiet" id="open-folder" data-t="open_folder"></button>
+          <button type="button" class="quiet" id="new-scan" data-t="new_scan"></button>
+        </div>
+      </header>
+      <p class="scan-note" id="saved-note" aria-live="polite"></p>
+      <dl class="summary" id="summary"></dl>
+      <div id="results-body"></div>
+    </section>
+
+    <section data-view="vpn" hidden>
+      <h1 data-t="vpn_title"></h1>
+      <p class="lede" data-t="vpn_intro"></p>
+      <form id="vpn-form" class="form" novalidate>
+        <fieldset class="choice">
+          <legend data-t="vpn_public"></legend>
+          <label class="option"><input type="radio" name="topology" value="direct" checked>
+            <span><span data-t="vpn_public_yes"></span><small data-t="vpn_public_yes_hint"></small></span></label>
+          <label class="option"><input type="radio" name="topology" value="hub">
+            <span><span data-t="vpn_public_no"></span><small data-t="vpn_public_no_hint"></small></span></label>
+        </fieldset>
+        <div class="field-row">
+          <div class="field grow">
+            <label for="vpn_endpoint" id="vpn_endpoint_label"></label>
+            <input id="vpn_endpoint" class="mono" autocomplete="off" spellcheck="false" required aria-describedby="vpn_endpoint_hint">
+            <p class="hint" id="vpn_endpoint_hint" data-t="vpn_endpoint_hint"></p>
+          </div>
+          <div class="field narrow">
+            <label for="vpn_port" data-t="vpn_port"></label>
+            <input id="vpn_port" class="mono" inputmode="numeric" value="51820">
+          </div>
+        </div>
+        <fieldset class="choice">
+          <legend data-t="vpn_device"></legend>
+          <label class="option"><input type="radio" name="store_device" value="gateway" checked>
+            <span><span data-t="vpn_device_gateway"></span><small data-t="vpn_device_gateway_hint"></small></span></label>
+          <label class="option"><input type="radio" name="store_device" value="router">
+            <span><span data-t="vpn_device_router"></span><small data-t="vpn_device_router_hint"></small></span></label>
+        </fieldset>
+        <div class="field-row">
+          <div class="field grow">
+            <label for="vpn_controller" data-t="vpn_controller"></label>
+            <input id="vpn_controller" class="mono" autocomplete="off" spellcheck="false" required>
+          </div>
+          <div class="field grow">
+            <label for="vpn_ports" data-t="vpn_controller_ports"></label>
+            <input id="vpn_ports" class="mono" autocomplete="off" value="80,443" aria-describedby="vpn_ports_hint">
+            <p class="hint" id="vpn_ports_hint" data-t="vpn_ports_hint"></p>
+          </div>
+        </div>
+        <details class="advanced">
+          <summary data-t="advanced"></summary>
+          <div class="field narrow">
+            <label for="vpn_store_number" data-t="vpn_store_number"></label>
+            <input id="vpn_store_number" class="mono" inputmode="numeric" value="1" aria-describedby="vpn_store_number_hint">
+            <p class="hint" id="vpn_store_number_hint" data-t="vpn_store_number_hint"></p>
+          </div>
+          <div class="field">
+            <label for="vpn_existing_key" data-t="vpn_existing_key"></label>
+            <input id="vpn_existing_key" class="mono" autocomplete="off" spellcheck="false" aria-describedby="vpn_existing_key_hint">
+            <p class="hint" id="vpn_existing_key_hint" data-t="vpn_existing_key_hint"></p>
+          </div>
+        </details>
+        <div class="actions">
+          <button type="button" class="quiet" data-go="results" data-t="back_results"></button>
+          <button type="submit" class="primary" data-t="vpn_generate"></button>
+        </div>
+      </form>
+      <div id="vpn-output" hidden>
+        <h2 data-t="vpn_files"></h2>
+        <p class="warning" data-t="vpn_keys_warning"></p>
+        <p class="path" id="vpn-dir"></p>
+        <ul class="files" id="vpn-files"></ul>
+        <div class="actions"><button type="button" class="quiet" id="vpn-open" data-t="open_folder"></button></div>
+        <pre class="instructions" id="vpn-instructions"></pre>
+        <h2 data-t="vpn_verify_title"></h2>
+        <p class="hint" data-t="vpn_verify_hint"></p>
+        <form id="verify-form" class="field-row">
+          <div class="field grow">
+            <label for="verify_address" data-t="vpn_verify_address"></label>
+            <input id="verify_address" class="mono" autocomplete="off" spellcheck="false" required>
+          </div>
+          <div class="field narrow">
+            <label for="verify_port" data-t="vpn_port_tcp">Port</label>
+            <input id="verify_port" class="mono" inputmode="numeric" value="80">
+          </div>
+          <div class="field end"><button type="submit" class="primary" data-t="vpn_verify"></button></div>
+        </form>
+        <p class="verdict" id="verify-result" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

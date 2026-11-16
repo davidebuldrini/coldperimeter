@@ -209,3 +209,125 @@ limits:
   - Servizi UDP come BACnet/IP.
   - Il riconoscimento delle centraline Danfoss si basa sulla documentazione del produttore e non è ancora stato validato su unità reali.
   - Questo audit è in sola lettura; non ha provato alcuna password e non ha modificato nulla.
+
+vpn:
+  hub_name: server intermedio
+  center_name: centro di manutenzione
+  instructions_title: Passi per configurare la VPN
+  intro: Questi file creano un tunnel WireGuard che il negozio apre verso il server. In negozio non viene aperta nessuna porta. ColdPerimeter ha generato i file; nessun dispositivo è stato modificato.
+  server_new: "Sulla macchina del {server} (indirizzo pubblico {endpoint}): installare WireGuard, copiare `{file}` in `/etc/wireguard/wg0.conf`, consentire nel firewall la porta UDP {port} in ingresso, poi avviare il tunnel con `wg-quick up wg0`."
+  server_existing: "Sul {server} già esistente: aggiungere il contenuto di `{file}` alla sua configurazione WireGuard e ricaricarla."
+  store_gateway: "Sul gateway del negozio (un piccolo dispositivo Linux collegato alla stessa rete della centralina): installare WireGuard e iptables, copiare `{file}` in `/etc/wireguard/wg0.conf`, avviarlo con `wg-quick up wg0` e attivarlo all'accensione con `systemctl enable wg-quick@wg0`."
+  store_router: "Sul router del negozio: importare `{file}` nella sezione WireGuard, poi aggiungere una regola firewall che permetta al tunnel di raggiungere solo {targets}."
+  technician: "Sul portatile del tecnico: importare `{file}` nell'app WireGuard e attivarlo."
+  verify: "Con il tunnel attivo, eseguire la verifica in ColdPerimeter prima di rimuovere qualsiasi accesso diretto (fase 3 del piano)."
+  access_title: Come raggiungere la centralina attraverso la VPN
+  access_line: "Centralina {controller} porta {controller_port}: collegarsi a {address}:{port}"
+  notes_title: Note
+  keys_warning: Questi file contengono chiavi private. Vanno trattati come password; eliminare le copie non necessarie.
+  direct_note: "Solo la macchina su cui gira `{file}` raggiunge il negozio attraverso il tunnel."
+  router_note: L'indirizzo della centralina deve essere unico tra i negozi che condividono questo server.
+
+ui:
+  steps:
+    authorization: Autorizzazione
+    scope: Ambito
+    scan: Scansione
+    checklist: Domande sul posto
+    results: Risultati
+  language: Lingua
+  continue: Continua
+  back: Indietro
+  auth_title: Chi ha autorizzato questo audit?
+  auth_intro: ColdPerimeter guarda soltanto. Non prova password e non modifica alcun dispositivo. Serve comunque il permesso di chi possiede la rete.
+  site: Nome del negozio
+  authorized_by: Autorizzato da
+  authorized_by_hint: Il proprietario della rete o chi agisce per suo conto.
+  operator: Il tuo nome
+  confirm: Sono autorizzato a eseguire l'audit di questa rete.
+  open_saved: Apri una scansione salvata
+  open_saved_hint: Riapre un file scan.json senza toccare la rete.
+  scope_title: Cosa scansionare
+  network: Rete
+  network_hint: Rilevata dalla connessione di questo computer. Cambiala se la centralina è su un'altra rete.
+  network_missing: Nessuna rete rilevata. Scrivila, per esempio 192.168.1.0/24.
+  advanced: Opzioni avanzate
+  targets: Solo questi indirizzi
+  targets_hint: Separati da spazi. Lascia vuoto per scansionare tutta la rete.
+  offline: Non fare richieste verso internet
+  offline_hint: Salta la lettura dell'indirizzo pubblico, l'indice pubblico e la sonda esterna.
+  probe_url: Indirizzo della sonda esterna
+  probe_hint: Un server sonda ColdPerimeter gestito da te. Senza, l'esposizione da internet resta non confermata.
+  xml_probe: Chiedi l'identità alle centraline Danfoss
+  xml_hint: Una richiesta in sola lettura documentata dal produttore.
+  sends_title: Cosa invia questa scansione
+  sends:
+    - Un ping a ogni indirizzo, poi un tentativo di connessione su nove porte, una alla volta.
+    - Ai dispositivi con una pagina web, una richiesta della pagina e una di identità, a cinque secondi di distanza.
+    - Al router, la richiesta dell'elenco delle porte inoltrate.
+    - Verso internet, la lettura dell'indirizzo pubblico e la ricerca nell'indice pubblico, se non le disattivi.
+  start: Avvia scansione
+  scan_title: Scansione in corso
+  scan_slow: Richiede qualche minuto di proposito. Le centraline vecchie possono bloccarsi se interrogate in fretta, e una centralina bloccata non manda allarmi.
+  stage_hosts: Ricerca dispositivi
+  stage_ports: Controllo porte
+  stage_identity: Lettura identità dei dispositivi
+  stage_exposure: Verifica esposizione a internet
+  status_pending: In attesa
+  status_running: In corso
+  status_done: Fatto
+  stop: Ferma scansione
+  stopped: Scansione fermata. Non è stato salvato nulla.
+  failed: La scansione è fallita
+  to_checklist: Rispondi alle domande sul posto
+  checklist_title: Domande sul posto
+  checklist_intro: Una scansione di rete non può vedere queste cose. Guarda dentro il quadro frigo e chiedi al personale del negozio.
+  see_results: Vedi risultati
+  waiting_scan: La scansione è ancora in corso. I risultati si aprono quando finisce.
+  results_title: Risultati
+  open_report: Apri report stampabile
+  open_folder: Apri cartella
+  new_scan: Nuova scansione
+  saved_to: "Salvato in {dir}"
+  setup_vpn: Configura la VPN
+  vpn_title: Configura la VPN
+  vpn_intro: Vengono scritti i file di configurazione WireGuard da caricare a mano. ColdPerimeter non modifica nulla su router o centraline.
+  vpn_public: Il centro di manutenzione è raggiungibile da internet?
+  vpn_public_yes: Sì, ha un indirizzo pubblico
+  vpn_public_yes_hint: Il negozio si collega direttamente al centro.
+  vpn_public_no: No, oppure seguiamo molti negozi
+  vpn_public_no_hint: Negozi e tecnici si collegano entrambi a un piccolo server intermedio con indirizzo pubblico.
+  vpn_endpoint_direct: Indirizzo del centro di manutenzione
+  vpn_endpoint_hub: Indirizzo del server intermedio
+  vpn_endpoint_hint: Nome host o indirizzo IP pubblico.
+  vpn_port: Porta UDP
+  vpn_device: Dove gira la VPN in negozio?
+  vpn_device_gateway: Un gateway dedicato accanto alla centralina
+  vpn_device_gateway_hint: Un piccolo dispositivo Linux. Vengono inoltrate solo le porte indicate della centralina.
+  vpn_device_router: Il router del negozio
+  vpn_device_router_hint: Deve supportare WireGuard. La regola firewall va aggiunta a mano.
+  vpn_controller: Indirizzo della centralina
+  vpn_controller_ports: Porte della centralina
+  vpn_ports_hint: Separate da virgole.
+  vpn_store_number: Numero del negozio
+  vpn_store_number_hint: Un numero diverso per ogni negozio sullo stesso server.
+  vpn_existing_key: Chiave pubblica del server esistente
+  vpn_existing_key_hint: Lascia vuoto per un server nuovo. Compilalo per aggiungere questo negozio a un server già configurato.
+  vpn_generate: Scrivi i file
+  vpn_files: File scritti
+  vpn_keys_warning: Questi file contengono chiavi private. Vanno trattati come password.
+  vpn_verify_title: Verifica attraverso il tunnel
+  vpn_verify_hint: Con la VPN attiva su questo computer, controlla che la centralina risponda prima di chiudere qualsiasi accesso diretto.
+  vpn_verify_address: Indirizzo
+  vpn_verify: Verifica
+  vpn_reachable: "La centralina risponde attraverso il tunnel."
+  vpn_unreachable: Nessuna risposta. Non chiudere ancora l'accesso diretto.
+  back_results: Torna ai risultati
+  error_engine: Il motore di ColdPerimeter non ha risposto. Chiudi la finestra e riaprila.
+  error_file: Questo file non è una scansione di ColdPerimeter.
+  ports_label: Porte da controllare
+  ports_hint: Lascia vuoto per l'elenco standard. Esempio per i simulatori, http:18080,modbus:15020
+  igd_label: Indirizzo di descrizione del router
+  igd_hint: Solo se il router non viene trovato automaticamente.
+  none_found: Nessuna centralina frigo identificata.
+  vpn_port_tcp: Porta

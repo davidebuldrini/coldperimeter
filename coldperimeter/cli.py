@@ -1,4 +1,4 @@
-"""Command line entry point: ``coldperimeter scan | report | capture``."""
+"""Command line entry point: ``coldperimeter scan | report | capture | vpn | ui``."""
 
 from __future__ import annotations
 
@@ -7,26 +7,24 @@ import asyncio
 import ipaddress
 import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
-from . import __version__, exposure
+from . import __version__
 from .consent import ConsentError, collect_consent
 from .discovery.hosts import ScopeError
 from .discovery.ports import DEFAULT_PORTS, parse_port_specs
 from .exposure import checklist
 from .findings.rules import evaluate
+from .fingerprint.capture import save_capture
 from .models import ScanResult
-from .report.plan import available_languages, load_locale, render_html, render_markdown
+from .report.plan import available_languages, load_locale
 from .scanner import ScanOptions, scan_local
+from .service import ScanCancelled, ScanRequest, apply_checklist, run_scan, write_reports
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def _progress(message: str) -> None:
-    print(message, file=sys.stderr)
+def _progress(stage: str, message: str, done: int | None, total: int | None) -> None:
+    if message:
+        print(message, file=sys.stderr)
 
 
 def _add_scope_arguments(parser: argparse.ArgumentParser) -> None:
@@ -42,7 +40,7 @@ def _add_scope_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-xml-probe", action="store_true", help="skip the read_units identity request")
 
 
-def _scan_options(args: argparse.Namespace, capture_dir: Path | None) -> ScanOptions:
+def _scan_options(args: argparse.Namespace, capture_dir: Path | None = None) -> ScanOptions:
     return ScanOptions(
         network=ipaddress.ip_network(args.network, strict=False) if args.network else None,
         targets=args.targets,
@@ -55,53 +53,30 @@ def _scan_options(args: argparse.Namespace, capture_dir: Path | None) -> ScanOpt
     )
 
 
-def _write_reports(result: ScanResult, out_dir: Path, lang: str) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "scan.json").write_text(
-        json.dumps(result.to_dict(), indent=2), encoding="utf-8"
-    )
-    (out_dir / "report.html").write_text(render_html(result, lang), encoding="utf-8")
-    (out_dir / "report.md").write_text(render_markdown(result, lang), encoding="utf-8")
-    print(f"Report written to {out_dir / 'report.html'}")
+def _write(result: ScanResult, out_dir: Path, lang: str) -> None:
+    print(f"Report written to {write_reports(result, out_dir, lang)}")
 
 
 def cmd_scan(args: argparse.Namespace) -> int:
     locale = load_locale(args.lang)
-    consent = collect_consent(args.site, args.authorized_by, args.operator)
-    options = _scan_options(args, Path(args.capture_dir) if args.capture_dir else None)
-
-    started = _now()
-    scope, hosts = asyncio.run(scan_local(options, _progress))
-
-    _progress("Checking exposure to the internet ...")
-    exposure_result = exposure.assess(
+    answers = None
+    if args.checklist_file:
+        answers = checklist.load_answers(Path(args.checklist_file))
+    request = ScanRequest(
+        site_name=args.site,
+        authorized_by=args.authorized_by,
+        operator=args.operator,
+        options=_scan_options(args, Path(args.capture_dir) if args.capture_dir else None),
         igd_url=args.igd_url,
         probe_url=args.probe_url,
         offline=args.offline,
         use_upnp=not args.no_upnp,
-    )
-    for error in exposure_result.errors:
-        _progress(f"  note: {error}")
-
-    if args.checklist_file:
-        answers = checklist.load_answers(Path(args.checklist_file))
-    elif args.no_checklist:
-        answers = checklist.unanswered()
-    else:
-        answers = checklist.ask_interactively(locale["checklist"])
-
-    result = ScanResult(
-        tool_version=__version__,
-        started_at=started,
-        finished_at=_now(),
-        consent=consent,
-        scope=scope,
-        hosts=hosts,
-        exposure=exposure_result,
         checklist=answers,
-        findings=evaluate(hosts, exposure_result, answers),
     )
-    _write_reports(result, Path(args.out), args.lang)
+    result = run_scan(request, _progress)
+    if answers is None and not args.no_checklist:
+        apply_checklist(result, checklist.ask_interactively(locale["checklist"]))
+    _write(result, Path(args.out), args.lang)
     return 0
 
 
@@ -110,7 +85,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     result = ScanResult.from_dict(data)
     if args.reevaluate:
         result.findings = evaluate(result.hosts, result.exposure, result.checklist)
-    _write_reports(result, Path(args.out), args.lang)
+    _write(result, Path(args.out), args.lang)
     return 0
 
 
@@ -119,10 +94,58 @@ def cmd_capture(args: argparse.Namespace) -> int:
     if not args.targets:
         raise ScopeError("capture needs --targets with the device address(es).")
     out_dir = Path(args.out)
-    _, hosts = asyncio.run(scan_local(_scan_options(args, out_dir), _progress))
-    saved = sum(1 for h in hosts if h.open_ports)
-    print(f"{saved} capture file(s) written to {out_dir}")
+    _, hosts = asyncio.run(scan_local(_scan_options(args), _progress))
+    saved = [
+        path
+        for index, host in enumerate(hosts)
+        if (path := save_capture(host, out_dir, args.sanitize, index))
+    ]
+    print(f"{len(saved)} capture file(s) written to {out_dir}")
+    if args.sanitize:
+        print("Sanitized: review the files before sharing them all the same.")
     return 0
+
+
+def cmd_vpn_init(args: argparse.Namespace) -> int:
+    from .vpn.output import save_plan
+    from .vpn.wireguard import VpnRequest, build_plan
+
+    plan = build_plan(
+        VpnRequest(
+            topology=args.topology,
+            endpoint_host=args.endpoint,
+            endpoint_port=args.endpoint_port,
+            controller_ips=args.controller,
+            controller_ports=[int(p) for p in args.ports.split(",")],
+            store_device=args.store_device,
+            store_number=args.store_number,
+            technician_number=args.technician_number,
+            server_public_key=args.server_public_key,
+        )
+    )
+    paths = save_plan(plan, Path(args.out), load_locale(args.lang)["vpn"])
+    for path in paths:
+        print(path)
+    print("These files contain private keys. Nothing was changed on any device.")
+    return 0
+
+
+def cmd_vpn_verify(args: argparse.Namespace) -> int:
+    from .vpn.verify import verify_access
+
+    result = verify_access(args.address, args.port)
+    if result.reachable:
+        title = f" (page title: {result.title})" if result.title else ""
+        print(f"Reachable: {result.address}:{result.port}{title}")
+        return 0
+    print(f"NOT reachable: {result.address}:{result.port}")
+    return 1
+
+
+def cmd_ui(args: argparse.Namespace) -> int:
+    from .gui.app import run
+
+    return run(browser=args.browser, port=args.port)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -158,8 +181,38 @@ def build_parser() -> argparse.ArgumentParser:
         "capture", help="save raw observations of given devices to refine signatures"
     )
     _add_scope_arguments(capture)
+    capture.add_argument("--sanitize", action="store_true",
+                         help="remove store names, IP addresses and device MACs")
     capture.add_argument("--out", default="captures", help="output directory")
     capture.set_defaults(func=cmd_capture)
+
+    vpn = commands.add_parser("vpn", help="guided WireGuard setup (generates files only)")
+    vpn_commands = vpn.add_subparsers(dest="vpn_command", required=True)
+
+    init = vpn_commands.add_parser("init", help="generate WireGuard configuration files")
+    init.add_argument("--topology", choices=("direct", "hub"), default="direct",
+                      help="direct: store dials the maintenance center; hub: both dial a relay server")
+    init.add_argument("--endpoint", required=True, help="public host name or address of the server")
+    init.add_argument("--endpoint-port", type=int, default=51820)
+    init.add_argument("--controller", nargs="+", required=True, help="controller address(es) in the store")
+    init.add_argument("--ports", default="80,443", help="controller TCP ports to make reachable")
+    init.add_argument("--store-device", choices=("gateway", "router"), default="gateway")
+    init.add_argument("--store-number", type=int, default=1)
+    init.add_argument("--technician-number", type=int, default=1)
+    init.add_argument("--server-public-key", help="public key of an existing server (adds this store to it)")
+    init.add_argument("--lang", default="en", choices=languages, help="language of the instructions")
+    init.add_argument("--out", default="vpn", help="output directory")
+    init.set_defaults(func=cmd_vpn_init)
+
+    verify = vpn_commands.add_parser("verify", help="check a controller answers through the tunnel")
+    verify.add_argument("--address", required=True)
+    verify.add_argument("--port", type=int, default=80)
+    verify.set_defaults(func=cmd_vpn_verify)
+
+    ui = commands.add_parser("ui", help="open the graphical interface")
+    ui.add_argument("--browser", action="store_true", help="use the web browser instead of a native window")
+    ui.add_argument("--port", type=int, default=0, help="local port (default: random)")
+    ui.set_defaults(func=cmd_ui)
     return parser
 
 
@@ -170,6 +223,9 @@ def main(argv: list[str] | None = None) -> int:
     except (ConsentError, ScopeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    except ScanCancelled:
+        print("Scan stopped.", file=sys.stderr)
+        return 130
     except KeyboardInterrupt:
         print("Interrupted.", file=sys.stderr)
         return 130

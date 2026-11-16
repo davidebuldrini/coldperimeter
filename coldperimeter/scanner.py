@@ -18,6 +18,14 @@ from .models import Host
 WEB_ROLES = ("http", "https")
 MAX_WEB_PORTS_PER_HOST = 2
 
+# Progress callback: (stage, message, done, total). ``done``/``total`` are
+# ``None`` for plain messages and numbers for per-host counters.
+Progress = Callable[[str, str, int | None, int | None], None]
+
+STAGE_HOSTS = "hosts"
+STAGE_PORTS = "ports"
+STAGE_IDENTITY = "identity"
+
 
 @dataclass
 class ScanOptions:
@@ -33,9 +41,15 @@ class ScanOptions:
     capture_dir: Path | None = None
 
 
-def _log(progress: Callable[[str], None] | None, message: str) -> None:
+def _emit(
+    progress: Progress | None,
+    stage: str,
+    message: str,
+    done: int | None = None,
+    total: int | None = None,
+) -> None:
     if progress:
-        progress(message)
+        progress(stage, message, done, total)
 
 
 async def _probe_host(host: Host, options: ScanOptions) -> None:
@@ -65,7 +79,7 @@ async def _probe_host(host: Host, options: ScanOptions) -> None:
 
 
 async def scan_local(
-    options: ScanOptions, progress: Callable[[str], None] | None = None
+    options: ScanOptions, progress: Progress | None = None
 ) -> tuple[str, list[Host]]:
     """Discover, probe and identify hosts. Returns ``(scope, hosts)``."""
     if options.targets:
@@ -75,16 +89,25 @@ async def scan_local(
         network = options.network or host_discovery.default_network()
         host_discovery.validate_network(network, options.allow_large)
         scope = str(network)
-        _log(progress, f"Looking for live hosts in {network} ...")
+        _emit(progress, STAGE_HOSTS, f"Looking for live hosts in {network} ...")
         addresses = await host_discovery.discover_hosts(network)
-    _log(progress, f"{len(addresses)} host(s) to check.")
+    total = len(addresses)
+    _emit(progress, STAGE_HOSTS, f"{total} host(s) to check.", total, total)
 
-    _log(progress, "Checking ports (slow on purpose) ...")
+    _emit(progress, STAGE_PORTS, "Checking ports (slow on purpose) ...", 0, total)
+    checked = 0
+
+    def port_scan_done() -> None:
+        nonlocal checked
+        checked += 1
+        _emit(progress, STAGE_PORTS, "", checked, total)
+
     open_ports = await scan_hosts(
         addresses,
         options.port_specs,
         delay=options.port_delay,
         timeout=options.connect_timeout,
+        on_host_done=port_scan_done,
     )
 
     arp = host_discovery.read_arp_table()
@@ -99,14 +122,21 @@ async def scan_local(
         for ip in addresses
     ]
 
-    _log(progress, "Reading device identity (read-only) ...")
+    to_probe = [h for h in hosts if h.open_ports]
+    _emit(
+        progress, STAGE_IDENTITY, "Reading device identity (read-only) ...", 0, len(to_probe)
+    )
     limiter = asyncio.Semaphore(4)
+    probed = 0
 
     async def guarded(host: Host) -> None:
+        nonlocal probed
         async with limiter:
             await _probe_host(host, options)
+        probed += 1
+        _emit(progress, STAGE_IDENTITY, "", probed, len(to_probe))
 
-    await asyncio.gather(*(guarded(h) for h in hosts if h.open_ports))
+    await asyncio.gather(*(guarded(h) for h in to_probe))
 
     for host in hosts:
         host.device = identify(host, databases)
@@ -114,5 +144,11 @@ async def scan_local(
             save_capture(host, options.capture_dir)
 
     found = sum(1 for h in hosts if h.device)
-    _log(progress, f"{found} controller candidate(s) identified.")
+    _emit(
+        progress,
+        STAGE_IDENTITY,
+        f"{found} controller candidate(s) identified.",
+        len(to_probe),
+        len(to_probe),
+    )
     return scope, hosts
