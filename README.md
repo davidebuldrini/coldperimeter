@@ -14,7 +14,36 @@ command. ColdPerimeter:
 It never changes anything: no passwords are tried, no settings are written,
 nothing is configured on routers or controllers.
 
-## Install
+## Download
+
+Ready-to-run builds for macOS and Windows are attached to each
+[GitHub release](../../releases). They are **not code-signed**, so the
+operating system warns on first launch:
+
+- **macOS:** right-click `ColdPerimeter.app`, choose **Open**, then **Open**
+  again in the dialog. If macOS still refuses, go to System Settings >
+  Privacy & Security and click **Open Anyway**.
+- **Windows:** in the "Windows protected your PC" window, click **More info**,
+  then **Run anyway**. The interface uses Microsoft Edge WebView2, included in
+  Windows 10 and 11; without it the interface opens in your browser.
+
+Each release lists SHA-256 checksums so you can check the download.
+
+## Graphical interface
+
+```bash
+.venv/bin/coldperimeter ui
+```
+
+A window opens and guides you through five steps: authorization, scope, scan,
+on-site questions and results. From step 2 of the intervention plan, **Set up
+the VPN** writes WireGuard configuration files and checks that the controller
+answers through the tunnel. Reports and VPN files are saved under
+`Documents/ColdPerimeter`.
+
+Add `--browser` to use your web browser instead of a native window.
+
+## Install from source
 
 ```bash
 uv venv --python 3.12 .venv
@@ -63,6 +92,29 @@ Rebuild a report from a saved scan, without touching the network:
 Scope is limited to private (RFC 1918) and loopback addresses, and a scan does
 not start without a site name, an authorizer and an operator.
 
+## VPN assistant (command line)
+
+```bash
+.venv/bin/coldperimeter vpn init --endpoint vpn.example.com --controller 192.168.10.20 --lang it
+```
+
+- `--topology direct` (default): the store dials the maintenance center, which
+  needs a public address (a dynamic DNS name is fine).
+- `--topology hub`: the center is behind carrier-grade NAT too, or you look
+  after many stores. Stores and technicians both dial a small relay server;
+  the relay lets technicians reach stores and blocks traffic between stores.
+- `--store-device gateway` (default): a small Linux device next to the
+  controller forwards only the listed controller ports.
+  `--store-device router`: the store router runs WireGuard itself.
+- `--server-public-key KEY`: add another store to a server you already set up.
+
+The files are written to `vpn/` with an `INSTRUCTIONS.md`. They contain
+private keys. Then, with the tunnel up:
+
+```bash
+.venv/bin/coldperimeter vpn verify --address 10.99.1.1 --port 80
+```
+
 ## Probe server
 
 `probe_server/` is a small service to deploy on a public host. It tests ports
@@ -86,7 +138,7 @@ unit. To refine them, collect raw observations on site:
 ```
 
 Capture files and scan outputs contain customer network data. They stay on the
-laptop and are git-ignored.
+laptop and are git-ignored. Add `--sanitize` before sharing a capture.
 
 ## Tests
 
@@ -103,6 +155,12 @@ Simulated devices for manual trials:
 ## Known limits
 
 - Recognition of real Danfoss controllers is not validated yet.
+- The generated VPN files have not yet been tried on real routers and gateways.
 - Firmware versions are shown, not compared with advisories automatically.
 - Port forwards are read only when the router has UPnP enabled.
 - No UDP checks (BACnet/IP), no other vendors.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE), [SECURITY.md](SECURITY.md) and
+[CONTRIBUTING.md](CONTRIBUTING.md).

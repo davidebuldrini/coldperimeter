@@ -445,6 +445,36 @@ function openVpn() {
   show("vpn");
 }
 
+// Render the instructions Markdown with DOM nodes only (no innerHTML):
+// headings, numbered and bulleted lists, paragraphs and `code` spans.
+function inline(text) {
+  const parts = text.split("`");
+  return parts.map((part, index) => (index % 2 ? el("code", { text: part }) : part));
+}
+
+function renderInstructions(markdown) {
+  const box = $("vpn-instructions");
+  box.replaceChildren();
+  let list = null;
+  for (const line of markdown.split("\n")) {
+    const numbered = line.match(/^\d+\.\s+(.*)$/);
+    const bullet = line.match(/^-\s+(.*)$/);
+    if (numbered || bullet) {
+      const tag = numbered ? "ol" : "ul";
+      if (!list || list.tagName.toLowerCase() !== tag) {
+        list = el(tag);
+        box.append(list);
+      }
+      list.append(el("li", {}, ...inline((numbered || bullet)[1])));
+      continue;
+    }
+    list = null;
+    if (!line.trim() || line.startsWith("# ")) continue; // the section already has a title
+    if (line.startsWith("## ")) box.append(el("h3", { text: line.slice(3) }));
+    else box.append(el("p", {}, ...inline(line)));
+  }
+}
+
 function generateVpn(event) {
   event.preventDefault();
   guarded(async () => {
@@ -467,7 +497,7 @@ function generateVpn(event) {
     state.vpnDir = plan.dir;
     $("vpn-dir").textContent = plan.dir;
     $("vpn-files").replaceChildren(...plan.files.map((file) => el("li", { text: file.name })));
-    $("vpn-instructions").textContent = plan.instructions;
+    renderInstructions(plan.instructions);
     if (plan.access.length) {
       $("verify_address").value = plan.access[0].address;
       $("verify_port").value = plan.access[0].port;
