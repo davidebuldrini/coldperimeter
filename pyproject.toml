@@ -6,11 +6,34 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
+authors = [{ name = "davidebuldrini" }]
+keywords = [
+    "security", "ics", "ot-security", "refrigeration", "danfoss",
+    "network-scanner", "wireguard", "audit",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: MacOS X",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Natural Language :: English",
+    "Natural Language :: Italian",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Networking :: Monitoring",
+]
 dependencies = [
     "PyYAML>=6.0",
     "Jinja2>=3.1",
     "cryptography>=42",
 ]
+
+[project.urls]
+Homepage = "https://github.com/davidebuldrini/coldperimeter"
+Issues = "https://github.com/davidebuldrini/coldperimeter/issues"
 
 [project.optional-dependencies]
 probe = ["fastapi>=0.110", "uvicorn>=0.29"]

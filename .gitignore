@@ -11,3 +11,7 @@ out/
 captures/
 # Icon review sheet written by packaging/make_icons.py
 packaging/icons/preview-sizes.png
+
+# Local tooling and macOS files
+.DS_Store
+.impeccable/
