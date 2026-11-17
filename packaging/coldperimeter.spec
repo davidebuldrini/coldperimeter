@@ -9,6 +9,7 @@ from PyInstaller.utils.hooks import collect_submodules
 
 ROOT = Path(SPECPATH).parent
 PKG = ROOT / "coldperimeter"
+ICONS = ROOT / "packaging" / "icons"
 
 datas = [
     (str(PKG / "gui" / "static"), "coldperimeter/gui/static"),
@@ -40,6 +41,7 @@ exe = EXE(
     name="ColdPerimeter",
     console=False,
     upx=False,
+    icon=str(ICONS / "coldperimeter.ico"),
 )
 coll = COLLECT(exe, a.binaries, a.datas, name="ColdPerimeter", upx=False)
 
@@ -48,6 +50,7 @@ if sys.platform == "darwin":
         coll,
         name="ColdPerimeter.app",
         bundle_identifier="org.coldperimeter.app",
+        icon=str(ICONS / "coldperimeter.icns"),
         info_plist={
             "CFBundleShortVersionString": "0.1.0",
             "NSHighResolutionCapable": True,

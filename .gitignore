@@ -9,3 +9,5 @@ uv.lock
 # Scan outputs contain customer network data: never commit them.
 out/
 captures/
+# Icon review sheet written by packaging/make_icons.py
+packaging/icons/preview-sizes.png

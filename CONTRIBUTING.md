@@ -58,3 +58,12 @@ official advisory) or `unverified`.
 The interface in `coldperimeter/gui/static/` is plain HTML, CSS and
 JavaScript with no build step and no external resources. Keep it that way:
 the app must work offline and load nothing from third parties.
+
+## Application icon
+
+The icon is drawn in code by `packaging/make_icons.py`. Edit the script, not
+the image files, then regenerate every format:
+
+```bash
+.venv/bin/python packaging/make_icons.py
+```
