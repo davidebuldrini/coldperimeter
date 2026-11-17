@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 MAX_PORTS = 32
 CONNECT_TIMEOUT = 3.0
+MAX_PAGE = 32768
 TLS_PORTS = {443, 8443}
 _TITLE = re.compile(rb"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 _CGNAT = ipaddress.ip_network("100.64.0.0/10")
@@ -45,6 +46,23 @@ def _is_public(ip: str) -> bool:
     except ValueError:
         return False
     return addr.is_global and addr not in _CGNAT
+
+
+async def _read_page(reader: asyncio.StreamReader) -> bytes:
+    """Read until the server closes or the title is complete.
+
+    A response usually arrives in several pieces (headers, then body), so a
+    single ``read`` may return the headers alone.
+    """
+    data = b""
+    while len(data) < MAX_PAGE:
+        chunk = await reader.read(MAX_PAGE - len(data))
+        if not chunk:
+            break
+        data += chunk
+        if b"</title>" in data.lower():
+            break
+    return data
 
 
 async def _read_title(ip: str, port: int) -> str | None:
@@ -65,7 +83,7 @@ async def _read_title(ip: str, port: int) -> str | None:
             f"GET / HTTP/1.0\r\nHost: {ip}\r\nUser-Agent: ColdPerimeter-probe\r\n\r\n".encode()
         )
         await writer.drain()
-        data = await asyncio.wait_for(reader.read(32768), CONNECT_TIMEOUT)
+        data = await asyncio.wait_for(_read_page(reader), CONNECT_TIMEOUT)
     except (OSError, asyncio.TimeoutError):
         return None
     finally:

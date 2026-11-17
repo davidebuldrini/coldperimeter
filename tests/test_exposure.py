@@ -95,3 +95,28 @@ def test_probe_limits_ports_rate_and_token():
     assert client.post("/v1/probe", json={"ports": list(range(1, 40))}, headers=auth).status_code == 422
     assert client.post("/v1/probe", json={"ports": [1]}, headers=auth).status_code == 200
     assert client.post("/v1/probe", json={"ports": [1]}, headers=auth).status_code == 429
+
+
+def test_probe_reads_title_when_response_arrives_in_pieces():
+    """Headers and body sent separately, as many devices (and Windows) do."""
+    import socketserver
+    import threading
+    import time
+
+    class Split(socketserver.BaseRequestHandler):
+        def handle(self):
+            self.request.recv(1024)
+            self.request.sendall(b"HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n")
+            time.sleep(0.3)
+            self.request.sendall(b"<html><head><title>Danfoss split</title></head></html>")
+
+    server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Split)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        port = server.server_address[1]
+        app = create_app(allow_private=True, min_interval=0)
+        answer = _client(app).post("/v1/probe", json={"ports": [port]}).json()
+        assert answer["ports"][str(port)]["title"] == "Danfoss split"
+    finally:
+        server.shutdown()
+        server.server_close()
