@@ -59,7 +59,7 @@ ics-security ot-security scada danfoss refrigeration wireguard vpn network-scann
 **Titolo:**
 
 ```text
-Show HN: ColdPerimeter – find and isolate exposed supermarket fridge controllers
+Show HN: ColdPerimeter – take exposed supermarket fridge controllers offline
 ```
 
 **URL:** `https://github.com/davidebuldrini/coldperimeter`
